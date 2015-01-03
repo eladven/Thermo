@@ -7,14 +7,9 @@ import time
 import datetime
 import RPi.GPIO as GPIO
 import socket
-import threading
+import thread
 
 DT = 3.0
-
-RELAY = 23
-BLUE_LED = 12
-WHITE_LED = 11
-BUTTON = 3
 
 ###########################################
 ##    Produce log file
@@ -35,8 +30,11 @@ def recordDataInLog(string):
 ###########################################
 ##    Communication with other devices
 ###########################################
+isExit = False
+isExitLock = thread.allocate_lock()
 
 def handleComm():
+    global isExit, isExitLock
     recordDataInLog("starting handle the communication")
     serversocket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     serversocket.bind(('', 8089))
@@ -46,6 +44,10 @@ def handleComm():
         buf = connection.recv(64)
         if len(buf) > 0:
             print buf
+            if buf == 'exit':
+                isExitLock.acquire()
+                isExit = True
+                isExitLock.release()
         serversocket.close
 
 ###########################################
@@ -84,6 +86,10 @@ def read_temp():
 ##########################################
 ##  GPIO 
 ##########################################
+RELAY = 23
+BLUE_LED = 12
+WHITE_LED = 11
+BUTTON = 3
 
 GPIO.setmode(GPIO.BOARD)
 GPIO.setup(RELAY, GPIO.OUT)
@@ -103,11 +109,15 @@ recordDataInLog("Booting - Up")
 blueValue = 0;
 counter = 0;
 
-commThread = threading.Thread(target=handleComm, args=())
-commThread.start()
+commThread = thread.start_new_thread(handleComm, ())
 
 recordDataInLog("Starting the control")
 while True:
+
+    isExitLock.acquire()
+    if isExit == True:
+        break
+    isExitLock.release()
     counter += 1
     if counter == 10:
         counter = 0;
