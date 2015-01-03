@@ -16,11 +16,28 @@ BLUE_LED = 12
 WHITE_LED = 11
 BUTTON = 3
 
+###########################################
+##    Produce log file
+###########################################
+
 oldFileName = ""
 logFile = open("tmp", 'a+')
 
+def recordDataInLog(string):
+    global oldFileName, logFile 
+    fileName = datetime.datetime.now().strftime("%d-%m-%y")+"_log.thr"
+    if fileName != oldFileName:
+        logFile.close()
+        logFile = open(fileName, 'a+')
+    logFile.write(datetime.datetime.now().strftime("%H:%H:%S")+" - "+string+"\n")
+    print(datetime.datetime.now().strftime("%H:%H:%S")+" - "+string+"\n")
+
+###########################################
+##    Communication with other devices
+###########################################
+
 def handleComm():
-    print("starting handle the communication")
+    recordDataInLog("starting handle the communication")
     serversocket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     serversocket.bind(('', 8089))
     serversocket.listen(5) # become a server socket, maximum 5 connections
@@ -31,6 +48,22 @@ def handleComm():
             print buf
         serversocket.close
 
+###########################################
+##   Reading the thermo
+###########################################
+
+os.system('modprobe w1-gpio')
+os.system('modprobe w1-therm')
+base_dir = '/sys/bus/w1/devices/'
+recordDataInLog("Waiting for thermometer communication...")
+
+while len(glob.glob(base_dir + '28*')) < 1:
+    time.sleep(0.001)
+    print('.'),
+recordDataInLog("Found!")
+device_folder = glob.glob(base_dir + '28*')[0]
+device_file = device_folder + '/w1_slave'
+
 def read_temp_raw():
     f = open(device_file, 'r')
     lines = f.readlines()
@@ -40,7 +73,7 @@ def read_temp_raw():
 def read_temp():
     lines = read_temp_raw()
     while lines[0].strip()[-3:] != 'YES':
-        time.sleep(0.2)
+        time.sleep(0.05)
         lines = read_temp_raw()
     equals_pos = lines[1].find('t=')
     if equals_pos != -1:
@@ -48,17 +81,9 @@ def read_temp():
         temp_c = float(temp_string) / 1000.0
         return temp_c
 
-def recordDataInLog(string, logFile):
-    fileName = datetime.datetime.now().strftime("%d-%m-%y")+"_log.thr"
-    if fileName != oldFileName:
-        logFile.close()
-        logFile = open(fileName, 'a+')
-    logFile.write(datetime.datetime.now().strftime("%H:%H:%S")+" - "+string+"\n")
-
-#################################
-##   Main
-#################################
-recordDataInLog("Booting - Up", logFile)
+##########################################
+##  GPIO 
+##########################################
 
 GPIO.setmode(GPIO.BOARD)
 GPIO.setup(RELAY, GPIO.OUT)
@@ -70,33 +95,19 @@ GPIO.output(BLUE_LED, 1)
 GPIO.output(WHITE_LED, 0)
 GPIO.output(RELAY, 0)
 
-os.system('modprobe w1-gpio')
-os.system('modprobe w1-therm')
-
-base_dir = '/sys/bus/w1/devices/'
-recordDataInLog("Waiting for thermometer communication...", logFile)
-print("Waiting for thermometer communication...")
-while len(glob.glob(base_dir + '28*')) < 1:
-    time.sleep(0.001)
-    print('.'),
-recordDataInLog("Found!", logFile)
-print("Found!")
-device_folder = glob.glob(base_dir + '28*')[0]
-device_file = device_folder + '/w1_slave'
+#################################
+##   Main
+#################################
+recordDataInLog("Booting - Up")
 
 blueValue = 0;
 counter = 0;
 
-thread = threading.Thread(target=handleComm, args=())
-thread.start()
-print("Starting the control")
-recordDataInLog("Starting the control", logFile)
-while True:
-    if GPIO.input(BUTTON) == False:
-        while (GPIO.input(BUTTON) == False):
-            GPIO.output(RELAY, 1)
-        print(read_temp())
+commThread = threading.Thread(target=handleComm, args=())
+commThread.start()
 
+recordDataInLog("Starting the control")
+while True:
     counter += 1
     if counter == 10:
         counter = 0;
@@ -108,10 +119,10 @@ while True:
             desirefile.close
         if read_temp() < desiredTemp - DT :
             GPIO.output(RELAY, 1)
-            recordDataInLog("OPEN RELAY Temp: "+repr(read_temp())+" desired temp: " + repr(desiredTemp), logFile)
+            recordDataInLog("OPEN RELAY Temp: "+repr(read_temp())+" desired temp: "+repr(desiredTemp))
         if read_temp() > desiredTemp + DT :
             GPIO.output(RELAY, 0)
-            recordDataInLog("CLOSE RELAY Temp: "+repr(read_temp())+" desired temp: " +repr(desiredTemp), logFile)
+            recordDataInLog("CLOSE RELAY Temp: "+repr(read_temp())+" desired temp: "+repr(desiredTemp))
             
    
        
