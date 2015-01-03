@@ -24,8 +24,8 @@ def recordDataInLog(string):
     if fileName != oldFileName:
         logFile.close()
         logFile = open(fileName, 'a+')
-    logFile.write(datetime.datetime.now().strftime("%H:%H:%S")+" - "+string+"\n")
-    print(datetime.datetime.now().strftime("%H:%H:%S")+" - "+string+"\n")
+    logFile.write(datetime.datetime.now().strftime("%H:%M:%S")+" - "+string+"\n")
+    print(datetime.datetime.now().strftime("%H:%M:%S")+" - "+string+"\n")
 
 ###########################################
 ##    Communication with other devices
@@ -90,7 +90,7 @@ RELAY = 23
 BLUE_LED = 12
 WHITE_LED = 11
 BUTTON = 3
-
+blueValue = 0
 GPIO.setmode(GPIO.BOARD)
 GPIO.setup(RELAY, GPIO.OUT)
 GPIO.setup(BLUE_LED, GPIO.OUT)
@@ -100,15 +100,16 @@ GPIO.setup(BUTTON, GPIO.IN)
 GPIO.output(BLUE_LED, 1)
 GPIO.output(WHITE_LED, 0)
 GPIO.output(RELAY, 0)
+ 
+def blinkBlueLed():
+    global blueValue, BLUE_LED
+    blueValue = 1 - blueValue
+    GPIO.output(BLUE_LED, blueValue)
 
 #################################
 ##   Main
 #################################
 recordDataInLog("Booting - Up")
-
-blueValue = 0;
-counter = 0;
-
 commThread = thread.start_new_thread(handleComm, ())
 
 recordDataInLog("Starting the control")
@@ -118,21 +119,18 @@ while True:
     if isExit == True:
         break
     isExitLock.release()
-    counter += 1
-    if counter == 10:
-        counter = 0;
-        blueValue = 1 - blueValue
-        GPIO.output(BLUE_LED, blueValue)
+    
+    blinkBlueLed();
 
-        with open ('desire.thr', 'r') as desirefile:
-            desiredTemp = float(desirefile.read().split()[0])
-            desirefile.close
-        if read_temp() < desiredTemp - DT :
-            GPIO.output(RELAY, 1)
-            recordDataInLog("OPEN RELAY Temp: "+repr(read_temp())+" desired temp: "+repr(desiredTemp))
-        if read_temp() > desiredTemp + DT :
-            GPIO.output(RELAY, 0)
-            recordDataInLog("CLOSE RELAY Temp: "+repr(read_temp())+" desired temp: "+repr(desiredTemp))
+    with open ('desire.thr', 'r') as desirefile:
+        desiredTemp = float(desirefile.read().split()[0])
+        desirefile.close
+    if read_temp() < desiredTemp - DT :
+        GPIO.output(RELAY, 1)
+        recordDataInLog("OPEN RELAY Temp: "+repr(read_temp())+" desired temp: "+repr(desiredTemp))
+    if read_temp() > desiredTemp + DT :
+        GPIO.output(RELAY, 0)
+        recordDataInLog("CLOSE RELAY Temp: "+repr(read_temp())+" desired temp: "+repr(desiredTemp))
             
    
        
