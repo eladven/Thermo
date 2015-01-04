@@ -16,15 +16,17 @@ DT = 3.0
 ###########################################
 
 oldFileName = ""
-logFile = open("tmp", 'a+')
-
+logFile = open("/home/pi/myrep/tmp", 'a+')
+logLock = thread.allocate_lock()
 def recordDataInLog(string):
-    global oldFileName, logFile 
+    global oldFileName, logFile, logLock
+    logLock.acquire
     fileName = datetime.datetime.now().strftime("%d-%m-%y")+"_log.thr"
     if fileName != oldFileName:
         logFile.close()
-        logFile = open(fileName, 'a+')
+        logFile = open('/home/pi/myrep'+fileName, 'a+')
     logFile.write(datetime.datetime.now().strftime("%H:%M:%S")+" - "+string+"\n")
+    logLock.release
     print(datetime.datetime.now().strftime("%H:%M:%S")+" - "+string+"\n")
 
 ###########################################
@@ -32,9 +34,10 @@ def recordDataInLog(string):
 ###########################################
 isExit = False
 isExitLock = thread.allocate_lock()
-
+roomTempFileLock = thread.allocate_lock()
+roomTempFileName = "/var/www/roomTempFile.thr"
 def handleComm():
-    global isExit, isExitLock
+    global isExit, isExitLock, roomTempFileLock, roomTempFileName
     recordDataInLog("starting handle the communication")
     serversocket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     serversocket.bind(('', 8089))
@@ -43,11 +46,20 @@ def handleComm():
         connection, address = serversocket.accept()
         buf = connection.recv(64)
         if len(buf) > 0:
-            print buf
             if buf == 'exit':
                 isExitLock.acquire()
                 isExit = True
                 isExitLock.release()
+                recordDataInLog("Exit")
+            tokens = buf.split('_')
+            if len(tokens) == 2:
+                if tokens[0] == 'roomTemp':
+                    roomTempFileLock.acquire
+                    roomTempFile = open(roomTempFileName,'w')
+                    roomTempFile.write('roomTemp ' + tokens[1]) 
+                    roomTempFile.close()
+                    roomTempFileLock.release
+                    recordDataInLog("Write to roomTempFile: roomTemp "+tokens[1])
         serversocket.close
 
 ###########################################
@@ -122,7 +134,7 @@ while True:
     
     blinkBlueLed();
 
-    with open ('desire.thr', 'r') as desirefile:
+    with open ('/home/pi/myrep/desire.thr', 'r') as desirefile:
         desiredTemp = float(desirefile.read().split()[0])
         desirefile.close
     if read_temp() < desiredTemp - DT :
