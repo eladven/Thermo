@@ -9,8 +9,6 @@ import RPi.GPIO as GPIO
 import socket
 import thread
 
-DT = 3.0
-
 ###########################################
 ##    Produce log file
 ###########################################
@@ -24,7 +22,7 @@ def recordDataInLog(string):
     fileName = datetime.datetime.now().strftime("%d-%m-%y")+"_log.thr"
     if fileName != oldFileName:
         logFile.close()
-        logFile = open('/home/pi/myrep'+fileName, 'a+')
+        logFile = open('/home/pi/myrep/'+fileName, 'a+')
     logFile.write(datetime.datetime.now().strftime("%H:%M:%S")+" - "+string+"\n")
     logLock.release
     print(datetime.datetime.now().strftime("%H:%M:%S")+" - "+string+"\n")
@@ -125,6 +123,7 @@ recordDataInLog("Booting - Up")
 commThread = thread.start_new_thread(handleComm, ())
 
 recordDataInLog("Starting the control")
+relayValue = 0
 while True:
 
     isExitLock.acquire()
@@ -133,18 +132,37 @@ while True:
     isExitLock.release()
     
     blinkBlueLed();
+    waterTemp = read_temp()
+    roomTempFileLock.acquire
+    roomTempFile = open(roomTempFileName,'r')
+    lines = roomTempFile.readlines()
+    roomTempFile.close()
+    roomTempFileLock.release
+    roomTemp = float(lines[0].split()[1])
 
-    with open ('/home/pi/myrep/desire.thr', 'r') as desirefile:
-        desiredTemp = float(desirefile.read().split()[0])
-        desirefile.close
-    if read_temp() < desiredTemp - DT :
-        GPIO.output(RELAY, 1)
-        recordDataInLog("OPEN RELAY Temp: "+repr(read_temp())+" desired temp: "+repr(desiredTemp))
-    if read_temp() > desiredTemp + DT :
-        GPIO.output(RELAY, 0)
-        recordDataInLog("CLOSE RELAY Temp: "+repr(read_temp())+" desired temp: "+repr(desiredTemp))
-            
-   
+    desiredWaterTemp = -5.55555*roomTemp + 178.88 # (16,90) -> liear (25,40)
+    if desiredWaterTemp > 90:
+       desiredWaterTemp = 90
+    
+    instantData = datetime.datetime.now().strftime("%d-%m-%y")+"  "+datetime.datetime.now().strftime("%H:%M:%S")+" roomTemp "+repr(roomTemp)+" waterTemp "+repr(waterTemp)+" desiredWaterTemp "+repr(desiredWaterTemp)
+
+    DT = 3.0     
+
+    if (waterTemp < desiredWaterTemp - DT) and (relayValue == 0):
+        relayValue = 1
+        recordDataInLog("OPEN RELAY Temp: "+" roomTemp "+repr(roomTemp)+" waterTemp "+repr(waterTemp)+" desiredWaterTemp "+repr(desiredWaterTemp))
+         
+    if (waterTemp > desiredWaterTemp + DT) and (relayValue == 1):
+        relayValue = 0
+        recordDataInLog("Close RELAY Temp: "+" roomTemp "+repr(roomTemp)+" waterTemp "+repr(waterTemp)+" desiredWaterTemp "+repr(desiredWaterTemp))
+
+    GPIO.output(RELAY, relayValue)
+
+    instantData = instantData +" relayValue "+ repr(relayValue)
+    instantDataFile = open('/var/www/instantDataFile.thr','w')
+    instantDataFile.write(instantData) 
+    instantDataFile.close()
+    print(instantData)
        
 
 GPIO.cleanup()
