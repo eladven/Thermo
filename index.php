@@ -1,40 +1,62 @@
-<!DOCTYPE HTML> 
-<html>
+<!DOCTYPE HTML>
+<html> 
 <head>
 <style>
 .error {color: #FF0000;}
 </style>
 </head>
-<body> 
+<body>
 
 <?php
-
-$mode = "";
-
-if ($_SERVER["REQUEST_METHOD"] == "POST") {
-   $gender = test_input($_POST["mode"]);
-}
-
-function test_input($data) {
-   $data = trim($data);
-   $data = stripslashes($data);
-   $data = htmlspecialchars($data);
-   return $data;
-}
+$myfile = fopen("instantDataFile.thr", "r") or die("Unable to open file!");
+$line =  fread($myfile,filesize("instantDataFile.thr"));
+$words = explode(" ", $line);
+fclose($myfile);
 ?>
-
-<h2>Thermo Control</h2>
-<form method="post" action="<?php echo htmlspecialchars($_SERVER["PHP_SELF"]);?>"> 
-  Mode:
-  <input type="radio" name="mode" <?php if (isset($mode) && $mode=="byWeb") echo "checked";?>  value="byWeb">ByWeb
-  <input type="radio" name="mode" <?php if (isset($mode) && $mode=="byControler") echo "checked";?>  value="byControler">ByControler
-   <br><br>
-</form>
-
+	
+<table border="1">
+<tr>
+	<td>tzip    1</td>
+	<td><?php echo $words[1];?></td>
+</tr>
+<tr>
+	<td>elad</td>
+	<td><?php echo $words[3];?></td>
+</tr>
+</table>
+	
 <?php
-echo "<h2>Your Input:</h2>";
-echo $gender;
-?>
+  $tempErr = "";
+  $sendTemp = ""; 
 
+  if( $_REQUEST["sendTemp"] )
+  {
+	 if (empty( $_REQUEST["sendTemp"])) {
+     	$tempErr = "SendTemp is required";
+     } else {
+     	$sendTemp = $_REQUEST['sendTemp'];
+     	if (!preg_match("/^[0-9]*$/",$sendTemp)) {
+      	 	$tempErr = "Only Digits allowed"; 
+		} else{
+			$myfile = fopen("dataOut.txt", "w") or die("Unable to open file!");
+			fwrite($myfile, "value is ".$sendTemp."\n");
+			fclose($myfile);
+		}
+	 }
+
+  }
+?>
+	
+<html>
+<body>
+  <form action="<?php $_PHP_SELF ?>" method="POST">
+
+  SendTemp: <input type="text" name="sendTemp" />
+ 	<span class="error">* <?php echo $tempErr?></span>
+  <input type="submit" />
+  </form>
+</body>
+</html>
+	
 </body>
 </html>
