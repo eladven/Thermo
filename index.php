@@ -13,18 +13,37 @@ $line =  fread($myfile,filesize("instantDataFile.thr"));
 $words = explode(" ", $line);
 fclose($myfile);
 ?>
+
+<article>
+  <header>
+    <h1>Heater Control</h1>
+    <h3><?php echo "Machine update time: ".$words[0]." : ".$words[2];?></h1>
+  </header>
+</article>
 	
-<table border="1">
+<table border="1" bgcolor="#E8E8E8">
+  <tr>
+    <th>Place</th>
+    <th>temp [c]</th>
+  </tr>
+  <tr>
+    <td>Room</td>
+    <td><?php echo $words[4];?></td>
+  </tr>
+  <tr>
+    <td>Heater water</td>
+    <td><?php echo $words[6];?></td>
+  </tr>
 <tr>
-	<td>tzip    1</td>
-	<td><?php echo $words[1];?></td>
+  <td>Calculated desired temp</td>
+  <td><?php echo $words[8];?></td>
 </tr>
 <tr>
-	<td>elad</td>
-	<td><?php echo $words[3];?></td>
+  <td>Heater is active </td>
+  <td><?php echo $words[10];?></td>
 </tr>
 </table>
-	
+
 <?php
   $tempErr = "";
   $sendTemp = ""; 
@@ -38,25 +57,25 @@ fclose($myfile);
      	if (!preg_match("/^[0-9]*$/",$sendTemp)) {
       	 	$tempErr = "Only Digits allowed"; 
 		} else{
-			$myfile = fopen("dataOut.txt", "w") or die("Unable to open file!");
-			fwrite($myfile, "value is ".$sendTemp."\n");
+			$myfile = fopen("/var/www/roomTempFile.thr", "w") or $tempErr = "Unable to open file";
+			fwrite($myfile, "roomTemp ".$sendTemp."\n");
 			fclose($myfile);
+                        $page = $_SERVER['PHP_SELF'];
+                        $sec = "2";
+                        header("Refresh: $sec; url=$page");
 		}
 	 }
 
   }
 ?>
-	
-<html>
-<body>
+
+  <p>Menualy set the room temp:</p>	
   <form action="<?php $_PHP_SELF ?>" method="POST">
 
-  SendTemp: <input type="text" name="sendTemp" />
+  Temp: <input type="text" name="sendTemp" />
  	<span class="error">* <?php echo $tempErr?></span>
   <input type="submit" />
   </form>
-</body>
-</html>
 	
 </body>
 </html>
