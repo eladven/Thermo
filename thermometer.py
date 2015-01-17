@@ -69,9 +69,15 @@ os.system('modprobe w1-therm')
 base_dir = '/sys/bus/w1/devices/'
 recordDataInLog("Waiting for thermometer communication...")
 
+i = 1000
 while len(glob.glob(base_dir + '28*')) < 1:
     time.sleep(0.001)
-    print('.'),
+    print('.')
+    i = i - 1
+    if i < 0:
+        recordDataInLog("Not Found! - Rebooting")
+        os.system('sudo reboot')
+
 recordDataInLog("Found!")
 device_folder = glob.glob(base_dir + '28*')[0]
 device_file = device_folder + '/w1_slave'
@@ -84,13 +90,19 @@ def read_temp_raw():
 
 def read_temp():
     lines = read_temp_raw()
+    i = 1000
     while lines[0].strip()[-3:] != 'YES':
         time.sleep(0.05)
         lines = read_temp_raw()
+        i = i - 1
+        if i < 0:
+            recordDataInLog("Connection problem! - Rebooting")
+            os.system('sudo reboot')
+
     equals_pos = lines[1].find('t=')
     if equals_pos != -1:
         temp_string = lines[1][equals_pos+2:]
-        temp_c = float(temp_string) / 1000.0
+        temp_c = float(temp_string) / 1000.0 
         return temp_c
 
 ##########################################
@@ -140,13 +152,13 @@ while True:
     roomTempFileLock.release
     roomTemp = float(lines[0].split()[1])
 
-    desiredWaterTemp = -5.55555*roomTemp + 178.88 # (16,90) -> liear (25,40)
-    if desiredWaterTemp > 90:
-       desiredWaterTemp = 90
+    desiredWaterTemp = -8.0*roomTemp + 224.0 # (18,80) -> liear (23,40)
+    if desiredWaterTemp > 76:
+       desiredWaterTemp = 76
     
     instantData = datetime.datetime.now().strftime("%d-%m-%y")+"  "+datetime.datetime.now().strftime("%H:%M:%S")+" roomTemp "+repr(roomTemp)+" waterTemp "+repr(waterTemp)+" desiredWaterTemp "+repr(desiredWaterTemp)
 
-    DT = 3.0     
+    DT = 5.0     
 
     if (waterTemp < desiredWaterTemp - DT) and (relayValue == 0):
         relayValue = 1
